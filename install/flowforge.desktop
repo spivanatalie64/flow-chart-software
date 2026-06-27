@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Name=FlowForge
+GenericName=Flow Chart Editor
+GenericName[en]=Flow Chart Editor
+Comment=Create amazintg flow charts, diagrams, and visual workflows
+Comment[en]=Create amazintg flow charts, diagrams, and visual workflows
+Exec=flowforge --daemon
+Icon=flowforge
+Terminal=false
+Categories=Graphics;Office;
+Keywords=flowchart;diagram;workflow;chart;visualization;draw;process;flow;graph;
+MimeType=application/json;
+StartupNotify=true
+StartupWMClass=flowforge
+X-KDE-StartupNotify=true
+
+# Desktop Actions
+Actions=new-window;
+
+[Desktop Action new-window]
+Name=Open FlowForge
+Name[en]=Open FlowForge
+Exec=flowforge --daemon

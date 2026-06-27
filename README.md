@@ -35,6 +35,23 @@ open public/index.html
 
 Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## 📦 Install to Application Menu
+
+FlowForge comes with an installer for KDE Plasma (and any freedesktop-compatible desktop):
+
+```bash
+# Install to application menu (system):
+./install/install.sh
+
+# Or manually:
+cp install/flowforge.desktop ~/.local/share/applications/
+cp install/flowforge ~/.local/bin/
+cp install/flowforge.svg ~/.local/share/icons/hicolor/scalable/apps/
+kbuildsycoca6   # Refresh KDE menu
+```
+
+Then find **FlowForge** in your application menu or click the desktop shortcut.
+
 ## 🎮 Usage
 
 | Action | How |

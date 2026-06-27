@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# FlowForge — Amazintg Flow Chart Software
+# Launcher script — starts a local server and opens the app in your browser
+#
+# Usage:
+#   flowforge              — foreground mode (shows server logs, Ctrl+C to stop)
+#   flowforge --daemon     — background mode (silent, for desktop file)
+#   flowforge --kill       — stop any running instance
+#   flowforge --url        — just print the URL and exit
+
+set -e
+
+APP_DIR="/storage/Projects/flow-chart-software/public"
+PORT="${FLOWFORGE_PORT:-8765}"
+URL="http://127.0.0.1:$PORT"
+PID_FILE="/tmp/flowforge-server.pid"
+
+cleanup() {
+  if [ -f "$PID_FILE" ]; then
+    kill "$(cat "$PID_FILE")" 2>/dev/null || true
+    rm -f "$PID_FILE"
+  fi
+}
+
+case "${1:-}" in
+  --kill)
+    cleanup
+    echo "FlowForge server stopped."
+    exit 0
+    ;;
+  --url)
+    echo "$URL"
+    exit 0
+    ;;
+  --daemon)
+    # Background mode — silent, no terminal needed
+    cleanup
+    cd "$APP_DIR"
+    nohup python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
+    echo $! > "$PID_FILE"
+    sleep 0.5
+    xdg-open "$URL" 2>/dev/null || true
+    echo "FlowForge started at $URL (background)"
+    exit 0
+    ;;
+  *)
+    # Foreground mode
+    cleanup
+    cd "$APP_DIR"
+    python3 -m http.server "$PORT" --bind 127.0.0.1 &
+    echo $! > "$PID_FILE"
+    sleep 0.5
+    trap cleanup EXIT INT TERM
+    xdg-open "$URL" 2>/dev/null || true
+    echo "FlowForge running at $URL"
+    echo "Press Ctrl+C to stop the server."
+    wait
+    ;;
+esac
