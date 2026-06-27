@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowForge — Amazintg Flow Charts</title>
+  <style>
+    /* ─── Reset & Base ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ─── Layout ─── */
+    #app { display: flex; height: 100vh; }
+
+    /* ─── Toolbar ─── */
+    #toolbar {
+      position: fixed; top: 0; left: 240px; right: 0; height: 52px;
+      background: rgba(18,18,32,0.95); backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 8px; padding: 0 16px;
+      z-index: 100;
+    }
+    #toolbar .brand { font-weight: 700; font-size: 18px; color: #7c5cfc; margin-right: 16px; }
+    #toolbar .brand span { color: #e0e0e0; font-weight: 400; }
+    .tb-btn {
+      padding: 6px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+      background: rgba(255,255,255,0.04); color: #ccc; cursor: pointer;
+      font-size: 13px; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+    }
+    .tb-btn:hover { background: rgba(124,92,252,0.2); border-color: #7c5cfc; color: #fff; }
+    .tb-btn.primary { background: #7c5cfc; color: #fff; border-color: #7c5cfc; }
+    .tb-btn.primary:hover { background: #6a4de6; }
+    .tb-btn.danger { color: #ff6b6b; }
+    .tb-btn.danger:hover { background: rgba(255,107,107,0.15); border-color: #ff6b6b; }
+    #toolbar .spacer { flex: 1; }
+    #toolbar .zoom-indicator { font-size: 12px; color: #888; min-width: 50px; text-align: center; }
+
+    /* ─── Palette / Sidebar ─── */
+    #palette {
+      width: 240px; min-width: 240px; height: 100vh;
+      background: rgba(14,14,28,0.98);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      padding: 68px 12px 12px; overflow-y: auto; z-index: 50;
+    }
+    #palette h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      color: #666; margin: 16px 0 8px; }
+    #palette h3:first-child { margin-top: 0; }
+    .palette-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: 8px; cursor: grab; user-select: none;
+      transition: all 0.15s; font-size: 13px; border: 1px solid transparent;
+    }
+    .palette-item:hover { background: rgba(124,92,252,0.1); border-color: rgba(124,92,252,0.25); }
+    .palette-item:active { cursor: grabbing; transform: scale(0.95); }
+    .palette-icon { width: 32px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; flex-shrink: 0; }
+    .palette-item .label { color: #bbb; }
+
+    /* ─── Canvas ─── */
+    #canvas-container {
+      flex: 1; position: relative; overflow: hidden;
+      background:
+        radial-gradient(circle at 25% 25%, rgba(124,92,252,0.03) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(92,124,252,0.03) 0%, transparent 50%),
+        #0f0f1a;
+    }
+    #canvas-container.drawing-connection { cursor: crosshair; }
+    #canvas { width: 100%; height: 100%; display: block; }
+    #canvas .grid-line { stroke: rgba(255,255,255,0.03); stroke-width: 1; }
+
+    /* ─── Context Menu ─── */
+    #context-menu {
+      position: fixed; background: rgba(20,20,40,0.98); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+      padding: 6px; min-width: 180px; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      z-index: 1000; display: none;
+    }
+    #context-menu .cm-item {
+      padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+      display: flex; align-items: center; gap: 10px; transition: all 0.1s;
+    }
+    #context-menu .cm-item:hover { background: rgba(124,92,252,0.2); }
+    #context-menu .cm-item.danger { color: #ff6b6b; }
+    #context-menu .cm-item.danger:hover { background: rgba(255,107,107,0.15); }
+    #context-menu .cm-separator { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 8px; }
+
+    /* ─── Properties Panel ─── */
+    #properties {
+      position: fixed; right: -360px; top: 52px; width: 320px; height: calc(100vh - 52px);
+      background: rgba(14,14,28,0.98); backdrop-filter: blur(16px);
+      border-left: 1px solid rgba(255,255,255,0.06);
+      padding: 20px; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 90; overflow-y: auto;
+    }
+    #properties.open { right: 0; }
+    #properties h3 { font-size: 14px; color: #aaa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+    #properties .prop-group { margin-bottom: 16px; }
+    #properties label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+    #properties input, #properties select {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3);
+      color: #e0e0e0; font-size: 13px; outline: none; transition: border-color 0.15s;
+    }
+    #properties input:focus, #properties select:focus { border-color: #7c5cfc; }
+    #properties input[type="color"] { height: 38px; padding: 2px; cursor: pointer; }
+
+    /* ─── Toast ─── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(20,20,40,0.95); backdrop-filter: blur(12px);
+      padding: 10px 20px; border-radius: 10px; font-size: 13px;
+      border: 1px solid rgba(255,255,255,0.08); color: #ccc;
+      opacity: 0; transition: opacity 0.3s; z-index: 2000; pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    /* ─── Nodes (SVG) ─── */
+    .flow-node { cursor: pointer; transition: filter 0.15s; }
+    .flow-node:hover { filter: brightness(1.15); }
+    .flow-node.selected .node-body { stroke: #7c5cfc; stroke-width: 3; filter: drop-shadow(0 0 12px rgba(124,92,252,0.4)); }
+    .flow-node .node-label { fill: #fff; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; text-anchor: middle; dominant-baseline: central; pointer-events: none; user-select: none; }
+    .flow-node .node-sub { fill: rgba(255,255,255,0.4); font-size: 10px; text-anchor: middle; dominant-baseline: central; }
+
+    .flow-conn { cursor: pointer; }
+    .flow-conn .conn-line { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2; stroke-linejoin: round; }
+    .flow-conn:hover .conn-line { stroke: rgba(124,92,252,0.6); stroke-width: 3; }
+    .flow-conn.selected .conn-line { stroke: #7c5cfc; stroke-width: 3; }
+    .flow-conn .conn-label { fill: rgba(255,255,255,0.4); font-size: 11px; text-anchor: middle; pointer-events: none; }
+    .conn-source { fill: rgba(255,255,255,0.3); cursor: crosshair; }
+    .conn-source:hover { fill: #7c5cfc; }
+
+    .connection-preview { stroke: rgba(124,92,252,0.5); stroke-width: 2; stroke-dasharray: 6 4; fill: none; pointer-events: none; }
+
+    /* ─── Minimap ─── */
+    #minimap {
+      position: fixed; bottom: 16px; right: 16px; width: 160px; height: 100px;
+      background: rgba(14,14,28,0.9); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px; overflow: hidden; z-index: 80;
+    }
+    #minimap svg { width: 100%; height: 100%; }
+    #minimap .minimap-viewport { fill: rgba(124,92,252,0.15); stroke: #7c5cfc; stroke-width: 1; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Palette -->
+    <div id="palette">
+      <h3>Nodes</h3>
+      <div class="palette-item" data-type="process">
+        <div class="palette-icon" style="background:#4ecdc4;border-radius:6px;">▬</div>
+        <span class="label">Process</span>
+      </div>
+      <div class="palette-item" data-type="decision">
+        <div class="palette-icon" style="background:#ff6b6b;border-radius:2px;transform:rotate(45deg);">◆</div>
+        <span class="label">Decision</span>
+      </div>
+      <div class="palette-item" data-type="start">
+        <div class="palette-icon" style="background:#51cf66;border-radius:12px;">▶</div>
+        <span class="label">Start</span>
+      </div>
+      <div class="palette-item" data-type="end">
+        <div class="palette-icon" style="background:#ff922b;border-radius:12px;">●</div>
+        <span class="label">End</span>
+      </div>
+      <div class="palette-item" data-type="database">
+        <div class="palette-icon" style="background:#339af0;">⎋</div>
+        <span class="label">Database</span>
+      </div>
+      <div class="palette-item" data-type="input">
+        <div class="palette-icon" style="background:#cc5de8;">⇄</div>
+        <span class="label">Input/Output</span>
+      </div>
+      <div class="palette-item" data-type="subprocess">
+        <div class="palette-icon" style="background:#fd7e14;">⊞</div>
+        <span class="label">Subprocess</span>
+      </div>
+      <div class="palette-item" data-type="document">
+        <div class="palette-icon" style="background:#20c997;">📄</div>
+        <span class="label">Document</span>
+      </div>
+      <h3>Actions</h3>
+      <div class="palette-item" data-action="connect" style="cursor:pointer;">
+        <div class="palette-icon" style="background:rgba(124,92,252,0.3);">→</div>
+        <span class="label">Draw Connection</span>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+      <div class="brand">Flow<span>Forge</span></div>
+      <button class="tb-btn primary" onclick="autoLayout()">⚡ Auto Layout</button>
+      <button class="tb-btn" onclick="exportJSON()">📥 Export JSON</button>
+      <button class="tb-btn" onclick="document.getElementById('importInput').click()">📤 Import</button>
+      <input type="file" id="importInput" accept=".json" style="display:none" onchange="importJSON(event)" />
+      <button class="tb-btn" onclick="exportSVG()">🖼 Export SVG</button>
+      <div class="spacer"></div>
+      <button class="tb-btn" onclick="undo()">↩ Undo</button>
+      <button class="tb-btn" onclick="redo()">↪ Redo</button>
+      <button class="tb-btn" onclick="zoomIn()">＋</button>
+      <span class="zoom-indicator" id="zoomDisplay">100%</span>
+      <button class="tb-btn" onclick="zoomOut()">−</button>
+      <button class="tb-btn" onclick="fitToScreen()">⊡ Fit</button>
+      <button class="tb-btn danger" onclick="deleteSelected()">🗑</button>
+    </div>
+
+    <!-- Canvas -->
+    <div id="canvas-container">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.3)" />
+          </marker>
+          <marker id="arrowhead-hover" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#7c5cfc" />
+          </marker>
+          <marker id="arrowhead-selected" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#7c5cfc" />
+          </marker>
+          <!-- Drop shadow filter -->
+          <filter id="node-shadow">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.3" />
+          </filter>
+          <filter id="node-shadow-selected">
+            <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.4" flood-color="#7c5cfc" />
+          </filter>
+        </defs>
+        <!-- Grid pattern -->
+        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none" class="grid-line" />
+        </pattern>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+        <!-- Connection preview line -->
+        <path class="connection-preview" id="connPreview" style="display:none" />
+        <!-- Nodes & Connections rendered here -->
+        <g id="connections-layer"></g>
+        <g id="nodes-layer"></g>
+        <!-- Drag selection box -->
+        <rect id="selection-box" style="display:none;fill:rgba(124,92,252,0.1);stroke:#7c5cfc;stroke-width:1;stroke-dasharray:4 2;" />
+      </svg>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu">
+      <div class="cm-item" onclick="editNodeLabel()">✏️ Edit Label</div>
+      <div class="cm-item" onclick="duplicateSelected()">📋 Duplicate</div>
+      <div class="cm-separator"></div>
+      <div class="cm-item" onclick="cutSelected()">✂️ Cut</div>
+      <div class="cm-item" onclick="copySelected()">📄 Copy</div>
+      <div class="cm-item" id="pasteOption" style="display:none;" onclick="pasteNodes()">📋 Paste</div>
+      <div class="cm-separator"></div>
+      <div class="cm-item danger" onclick="deleteSelected()">🗑 Delete</div>
+    </div>
+
+    <!-- Properties Panel -->
+    <div id="properties">
+      <h3 id="propTitle">Properties</h3>
+      <div class="prop-group">
+        <label>Label</label>
+        <input type="text" id="propLabel" onchange="updateProp('label', this.value)" />
+      </div>
+      <div class="prop-group">
+        <label>Color</label>
+        <input type="color" id="propColor" onchange="updateProp('color', this.value)" />
+      </div>
+      <div class="prop-group">
+        <label>Text Color</label>
+        <input type="color" id="propTextColor" onchange="updateProp('textColor', this.value)" />
+      </div>
+      <div class="prop-group" id="propWidthGroup">
+        <label>Width</label>
+        <input type="range" id="propWidth" min="80" max="280" onchange="updateProp('width', parseInt(this.value))" />
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast"></div>
+  </div>
+
+  <script>
+  // ══════════════════════════════════════════════════════════════════════════
+  //  FlowForge — Core Flow Chart Engine
+  // ══════════════════════════════════════════════════════════════════════════
+
+  let nodes = [];
+  let connections = [];
+  let nextId = 1;
+  let selected = null; // { type: 'node'|'conn', id: number }
+  let clipboard = null;
+  let history = [];
+  let historyIndex = -1;
+  const maxHistory = 50;
+
+  // Pan & Zoom state
+  let panX = 0, panY = 0, zoom = 1;
+  let isPanning = false, panStart = { x: 0, y: 0 };
+  let isDrawingConn = false, connSource = null;
+  let dragNode = null, dragOffset = { x: 0, y: 0 };
+  let isSelecting = false, selectStart = { x: 0, y: 0 };
+
+  // ─── Utility ───
+
+  function uid() { return nextId++; }
+
+  function toast(msg, duration=2000) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._timeout);
+    el._timeout = setTimeout(() => el.classList.remove('show'), duration);
+  }
+
+  function pushHistory() {
+    const state = JSON.stringify({ nodes, connections });
+    history = history.slice(0, historyIndex + 1);
+    history.push(state);
+    if (history.length > maxHistory) history.shift();
+    historyIndex = history.length - 1;
+  }
+
+  function undo() {
+    if (historyIndex <= 0) return toast('Nothing to undo');
+    historyIndex--;
+    restoreHistory();
+  }
+
+  function redo() {
+    if (historyIndex >= history.length - 1) return toast('Nothing to redo');
+    historyIndex++;
+    restoreHistory();
+  }
+
+  function restoreHistory() {
+    const state = JSON.parse(history[historyIndex]);
+    nodes = state.nodes;
+    connections = state.connections;
+    selected = null;
+    closeProperties();
+    render();
+  }
+
+  // ─── Node Factory ───
+
+  function createNode(type, label, x, y) {
+    const defaults = {
+      process:   { w: 150, h: 60, color: '#4ecdc4', rx: 8, shape: 'rect' },
+      decision:  { w: 120, h: 90, color: '#ff6b6b', rx: 0, shape: 'diamond' },
+      start:     { w: 120, h: 50, color: '#51cf66', rx: 25, shape: 'rect' },
+      end:       { w: 120, h: 50, color: '#ff922b', rx: 25, shape: 'rect' },
+      database:  { w: 150, h: 70, color: '#339af0', rx: 0, shape: 'database' },
+      input:     { w: 150, h: 60, color: '#cc5de8', rx: 0, shape: 'parallelogram' },
+      subprocess:{ w: 160, h: 60, color: '#fd7e14', rx: 0, shape: 'subprocess' },
+      document:  { w: 140, h: 70, color: '#20c997', rx: 0, shape: 'document' },
+    };
+    const d = defaults[type] || defaults.process;
+    return {
+      id: uid(), type, label: label || type.charAt(0).toUpperCase() + type.slice(1),
+      x: x || 100, y: y || 100, w: d.w, h: d.h, color: d.color, rx: d.rx,
+      shape: d.shape, textColor: '#ffffff', fontSize: 13,
+    };
+  }
+
+  function addNode(node) { nodes.push(node); pushHistory(); render(); }
+
+  // ─── Connection Factory ───
+
+  function createConnection(from, to, label='') {
+    return { id: uid(), from, to, label, color: 'rgba(255,255,255,0.25)', width: 2 };
+  }
+
+  // ─── Auto Layout ───
+
+  function autoLayout() {
+    if (nodes.length === 0) return toast('No nodes to layout');
+
+    // Simple layered layout (topological sort)
+    const incoming = {}; nodes.forEach(n => incoming[n.id] = 0);
+    connections.forEach(c => { if (incoming[c.to] !== undefined) incoming[c.to]++; });
+
+    let queue = nodes.filter(n => incoming[n.id] === 0);
+    const layers = [];
+    const visited = new Set();
+
+    while (queue.length > 0) {
+      layers.push([...queue]);
+      const next = [];
+      queue.forEach(n => {
+        visited.add(n.id);
+        connections.filter(c => c.from === n.id).forEach(c => {
+          if (!visited.has(c.to)) {
+            incoming[c.to]--;
+            if (incoming[c.to] === 0) next.push(nodes.find(nn => nn.id === c.to));
+          }
+        });
+      });
+      queue = next.filter(Boolean);
+    }
+
+    if (layers.length === 0) return toast('Layout complete');
+
+    const spacingX = 220, spacingY = 140;
+    const startX = 60, startY = 60;
+
+    layers.forEach((layer, yi) => {
+      const totalW = layer.length * spacingX;
+      const offsetX = Math.max(0, (800 - totalW) / 2);
+      layer.forEach((node, xi) => {
+        node.x = startX + offsetX + xi * spacingX;
+        node.y = startY + yi * spacingY;
+      });
+    });
+
+    pushHistory();
+    render();
+    toast('Layout applied');
+  }
+
+  // ─── Render ───
+
+  function render() {
+    const nodesLayer = document.getElementById('nodes-layer');
+    const connsLayer = document.getElementById('connections-layer');
+    nodesLayer.innerHTML = '';
+    connsLayer.innerHTML = '';
+
+    const g = document.getElementById('canvas');
+    const vw = g.clientWidth || 1200;
+    const vh = g.clientHeight || 800;
+
+    // Transform
+    nodesLayer.setAttribute('transform', `translate(${panX},${panY}) scale(${zoom})`);
+    connsLayer.setAttribute('transform', `translate(${panX},${panY}) scale(${zoom})`);
+
+    // ── Connections ──
+    connections.forEach(conn => {
+      const src = nodes.find(n => n.id === conn.from);
+      const tgt = nodes.find(n => n.id === conn.to);
+      if (!src || !tgt) return;
+
+      const [x1, y1] = getNodeAnchor(src, conn.from, tgt);
+      const [x2, y2] = getNodeAnchor(tgt, conn.to, src);
+
+      const cx = (x1 + x2) / 2;
+      const cy = (y1 + y2) / 2;
+
+      // Curved path
+      const dx = x2 - x1, dy = y2 - y1;
+      const cpx = cx, cpy = cy - Math.abs(dx) * 0.2;
+
+      const isSelected = selected && selected.type === 'conn' && selected.id === conn.id;
+      const pathD = `M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`;
+
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', `flow-conn${isSelected ? ' selected' : ''}`);
+      group.dataset.id = conn.id;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('class', 'conn-line');
+      path.setAttribute('d', pathD);
+      path.setAttribute('marker-end', isSelected ? 'url(#arrowhead-selected)' : 'url(#arrowhead)');
+      path.setAttribute('stroke', isSelected ? '#7c5cfc' : conn.color);
+      path.setAttribute('stroke-width', isSelected ? 3 : conn.width);
+      group.appendChild(path);
+
+      // Hit area (wider invisible path)
+      const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      hitPath.setAttribute('d', pathD);
+      hitPath.setAttribute('stroke', 'transparent');
+      hitPath.setAttribute('stroke-width', '14');
+      hitPath.setAttribute('fill', 'none');
+      hitPath.style.cursor = 'pointer';
+      hitPath.addEventListener('click', (e) => { e.stopPropagation(); selectConn(conn.id); });
+      hitPath.addEventListener('dblclick', (e) => { e.stopPropagation(); editConnLabel(conn.id); });
+      group.appendChild(hitPath);
+
+      // Label
+      if (conn.label) {
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'conn-label');
+        label.setAttribute('x', cx);
+        label.setAttribute('y', cpy - 14);
+        label.textContent = conn.label;
+        group.appendChild(label);
+      }
+
+      connsLayer.appendChild(group);
+    });
+
+    // ── Nodes ──
+    nodes.forEach(node => {
+      const isSelected = selected && selected.type === 'node' && selected.id === node.id;
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', `flow-node${isSelected ? ' selected' : ''}`);
+      group.dataset.id = node.id;
+
+      let body;
+      if (node.shape === 'diamond') {
+        body = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const hw = node.w / 2, hh = node.h / 2;
+        body.setAttribute('points', `${node.x},${node.y-hh} ${node.x+hw},${node.y} ${node.x},${node.y+hh} ${node.x-hw},${node.y}`);
+        body.setAttribute('class', 'node-body');
+        body.setAttribute('fill', node.color);
+        group.appendChild(body);
+
+        // Label
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('x', node.x);
+        label.setAttribute('y', node.y);
+        label.setAttribute('fill', node.textColor);
+        label.setAttribute('font-size', node.fontSize);
+        label.textContent = truncate(node.label, 15);
+        group.appendChild(label);
+
+      } else if (node.shape === 'database') {
+        // Cylinder
+        const rx = node.w / 2, ry = 10;
+        body = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const d = `M ${node.x} ${node.y} ` +
+          `L ${node.x} ${node.y + node.h - ry} ` +
+          `A ${rx} ${ry} 0 0 0 ${node.x + node.w} ${node.y + node.h - ry} ` +
+          `L ${node.x + node.w} ${node.y} ` +
+          `A ${rx} ${ry} 0 0 1 ${node.x} ${node.y} Z`;
+        body.setAttribute('d', d);
+        body.setAttribute('class', 'node-body');
+        body.setAttribute('fill', node.color);
+        group.appendChild(body);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('x', node.x + node.w / 2);
+        label.setAttribute('y', node.y + node.h / 2);
+        label.setAttribute('fill', node.textColor);
+        label.setAttribute('font-size', node.fontSize);
+        label.textContent = truncate(node.label, 15);
+        group.appendChild(label);
+
+      } else if (node.shape === 'parallelogram') {
+        body = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const skew = 20;
+        body.setAttribute('points',
+          `${node.x + skew},${node.y} ${node.x + node.w},${node.y} ${node.x + node.w - skew},${node.y + node.h} ${node.x},${node.y + node.h}`);
+        body.setAttribute('class', 'node-body');
+        body.setAttribute('fill', node.color);
+        group.appendChild(body);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('x', node.x + node.w / 2);
+        label.setAttribute('y', node.y + node.h / 2);
+        label.setAttribute('fill', node.textColor);
+        label.setAttribute('font-size', node.fontSize);
+        label.textContent = truncate(node.label, 15);
+        group.appendChild(label);
+
+      } else if (node.shape === 'subprocess') {
+        body = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        body.setAttribute('x', node.x);
+        body.setAttribute('y', node.y);
+        body.setAttribute('width', node.w);
+        body.setAttribute('height', node.h);
+        body.setAttribute('rx', 6);
+        body.setAttribute('class', 'node-body');
+        body.setAttribute('fill', node.color);
+        group.appendChild(body);
+
+        // Double border
+        const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        border.setAttribute('x', node.x + 3);
+        border.setAttribute('y', node.y + 3);
+        border.setAttribute('width', node.w - 6);
+        border.setAttribute('height', node.h - 6);
+        border.setAttribute('rx', 4);
+        border.setAttribute('fill', 'none');
+        border.setAttribute('stroke', 'rgba(255,255,255,0.2)');
+        border.setAttribute('stroke-width', 1);
+        group.appendChild(border);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('x', node.x + node.w / 2);
+        label.setAttribute('y', node.y + node.h / 2);
+        label.setAttribute('fill', node.textColor);
+        label.setAttribute('font-size', node.fontSize);
+        label.textContent = truncate(node.label, 15);
+        group.appendChild(label);
+
+      } else if (node.shape === 'document') {
+        body = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const d = `M ${node.x} ${node.y} ` +
+          `L ${node.x + node.w} ${node.y} ` +
+          `L ${node.x + node.w} ${node.y + node.h - 15} ` +
+          `Q ${node.x + node.w - 15} ${node.y + node.h + 5} ${node.x} ${node.y + node.h} Z`;
+        body.setAttribute('d', d);
+        body.setAttribute('class', 'node-body');
+        body.setAttribute('fill', node.color);
+        group.appendChild(body);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('x', node.x + node.w / 2);
+        label.setAttribute('y', node.y + node.h / 2 - 5);
+        label.setAttribute('fill', node.textColor);
+        label.setAttribute('font-size', node.fontSize);
+        label.textContent = truncate(node.label, 12);
+        group.appendChild(label);
+
+      } else {
+        // Default: rounded rect
+        body = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        body.setAttribute('x', node.x);
+        body.setAttribute('y', node.y);
+        body.setAttribute('width', node.w);
+        body.setAttribute('height', node.h);
+        body.setAttribute('rx', node.rx || 8);
+        body.setAttribute('class', 'node-body');
+        body.setAttribute('fill', node.color);
+        body.setAttribute('filter', isSelected ? 'url(#node-shadow-selected)' : 'url(#node-shadow)');
+        group.appendChild(body);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('x', node.x + node.w / 2);
+        label.setAttribute('y', node.y + node.h / 2);
+        label.setAttribute('fill', node.textColor);
+        label.setAttribute('font-size', node.fontSize);
+        label.textContent = truncate(node.label, 18);
+        group.appendChild(label);
+      }
+
+      // Connection source handle (small circle)
+      const handle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      handle.setAttribute('class', 'conn-source');
+      handle.setAttribute('cx', node.x + node.w / 2);
+      handle.setAttribute('cy', node.y + node.h / 2);
+      handle.setAttribute('r', 6);
+      handle.style.cursor = 'crosshair';
+      handle.addEventListener('mousedown', (e) => { e.stopPropagation(); startDrawingConn(node.id, e); });
+      group.appendChild(handle);
+
+      // Events
+      group.addEventListener('mousedown', (e) => { if (e.target === handle) return; onNodeMouseDown(e, node.id); });
+      group.addEventListener('click', (e) => { if (e.target !== handle) { e.stopPropagation(); selectNode(node.id); } });
+      group.addEventListener('dblclick', (e) => { e.stopPropagation(); editNodeLabel(node.id); });
+
+      nodesLayer.appendChild(group);
+    });
+
+    updateMinimap();
+  }
+
+  function truncate(str, max) {
+    return str.length > max ? str.slice(0, max - 1) + '…' : str;
+  }
+
+  function getNodeAnchor(node, nodeId, other) {
+    // Return center of node for simplicity; real impl would pick edge based on direction
+    return [node.x + node.w / 2, node.y + node.h / 2];
+  }
+
+  // ─── Selection ───
+
+  function selectNode(id) {
+    if (selected && selected.type === 'node' && selected.id === id) return;
+    selected = { type: 'node', id };
+    openProperties('node', id);
+    render();
+  }
+
+  function selectConn(id) {
+    selected = { type: 'conn', id };
+    openProperties('conn', id);
+    render();
+  }
+
+  function deselectAll() {
+    selected = null;
+    closeProperties();
+    render();
+  }
+
+  function deleteSelected() {
+    if (!selected) return toast('Nothing selected');
+    if (selected.type === 'node') {
+      const nodeId = selected.id;
+      connections = connections.filter(c => c.from !== nodeId && c.to !== nodeId);
+      nodes = nodes.filter(n => n.id !== nodeId);
+      toast('Node deleted');
+    } else if (selected.type === 'conn') {
+      connections = connections.filter(c => c.id !== selected.id);
+      toast('Connection deleted');
+    }
+    selected = null;
+    closeProperties();
+    pushHistory();
+    render();
+  }
+
+  // ─── Mouse & Canvas Interaction ───
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('canvas-container');
+    const svg = document.getElementById('canvas');
+
+    canvas.addEventListener('mousedown', onCanvasMouseDown);
+    canvas.addEventListener('mousemove', onCanvasMouseMove);
+    canvas.addEventListener('mouseup', onCanvasMouseUp);
+    canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('contextmenu', onContextMenu);
+
+    // Palette drag
+    document.querySelectorAll('.palette-item[data-type]').forEach(el => {
+      el.addEventListener('mousedown', (e) => {
+        const type = el.dataset.type;
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left - panX) / zoom - 75;
+        const y = (e.clientY - rect.top - panY) / zoom - 30;
+        const node = createNode(type, el.querySelector('.label').textContent, x, y);
+        addNode(node);
+        selectNode(node.id);
+      });
+    });
+
+    // Connect action
+    document.querySelector('[data-action="connect"]').addEventListener('click', () => {
+      isDrawingConn = false;
+      connSource = null;
+      document.getElementById('connPreview').style.display = 'none';
+      toast('Click a node to start drawing a connection');
+      document.getElementById('canvas-container').classList.add('drawing-connection');
+    });
+
+    // Cancel drawing connection with Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (isDrawingConn) {
+          isDrawingConn = false;
+          connSource = null;
+          document.getElementById('connPreview').style.display = 'none';
+          document.getElementById('canvas-container').classList.remove('drawing-connection');
+        }
+      }
+    });
+
+    // Load initial sample
+    loadSample();
+  });
+
+  function onCanvasMouseDown(e) {
+    if (e.button === 1 || (e.shiftKey && e.button === 0)) {
+      // Middle click or shift+click = pan
+      isPanning = true;
+      panStart = { x: e.clientX - panX, y: e.clientY - panY };
+      return;
+    }
+
+    if (e.target === document.getElementById('canvas') || e.target === document.querySelector('#canvas rect')) {
+      // Start drag selection or deselect
+      if (!e.shiftKey) {
+        deselectAll();
+      }
+      isSelecting = true;
+      selectStart = { x: e.clientX, y: e.clientY };
+      const box = document.getElementById('selection-box');
+      box.style.display = 'block';
+      box.setAttribute('x', e.clientX);
+      box.setAttribute('y', e.clientY);
+      box.setAttribute('width', 0);
+      box.setAttribute('height', 0);
+    }
+  }
+
+  function onCanvasMouseMove(e) {
+    const canvas = document.getElementById('canvas-container');
+    const rect = canvas.getBoundingClientRect();
+
+    if (isPanning) {
+      panX = e.clientX - panStart.x;
+      panY = e.clientY - panStart.y;
+      render();
+      return;
+    }
+
+    if (isSelecting) {
+      const box = document.getElementById('selection-box');
+      const x = Math.min(selectStart.x, e.clientX);
+      const y = Math.min(selectStart.y, e.clientY);
+      const w = Math.abs(e.clientX - selectStart.x);
+      const h = Math.abs(e.clientY - selectStart.y);
+      box.setAttribute('x', x);
+      box.setAttribute('y', y);
+      box.setAttribute('width', w);
+      box.setAttribute('height', h);
+      return;
+    }
+
+    if (isDrawingConn && connSource !== null) {
+      const mx = (e.clientX - rect.left - panX) / zoom;
+      const my = (e.clientY - rect.top - panY) / zoom;
+      const src = nodes.find(n => n.id === connSource);
+      if (src) {
+        const sx = src.x + src.w / 2;
+        const sy = src.y + src.h / 2;
+        const preview = document.getElementById('connPreview');
+        preview.style.display = 'block';
+        const dx = mx - sx, dy = my - sy;
+        const cx = (sx + mx) / 2, cy = (sy + my) / 2 - Math.abs(dx) * 0.15;
+        preview.setAttribute('d', `M ${sx} ${sy} Q ${cx} ${cy} ${mx} ${my}`);
+      }
+    }
+
+    if (dragNode !== null) {
+      const node = nodes.find(n => n.id === dragNode);
+      if (node) {
+        const mx = (e.clientX - rect.left - panX) / zoom;
+        const my = (e.clientY - rect.top - panY) / zoom;
+        node.x = mx - dragOffset.x;
+        node.y = my - dragOffset.y;
+        render();
+      }
+    }
+  }
+
+  function onCanvasMouseUp(e) {
+    if (isPanning) { isPanning = false; return; }
+
+    if (isSelecting) {
+      isSelecting = false;
+      document.getElementById('selection-box').style.display = 'none';
+      return;
+    }
+
+    if (isDrawingConn && connSource !== null) {
+      // Check if we dropped on a node
+      const canvas = document.getElementById('canvas-container');
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left - panX) / zoom;
+      const my = (e.clientY - rect.top - panY) / zoom;
+
+      const target = nodes.find(n => {
+        return mx >= n.x && mx <= n.x + n.w && my >= n.y && my <= n.y + n.h;
+      });
+
+      if (target && target.id !== connSource) {
+        // Check for duplicate
+        const exists = connections.some(c => c.from === connSource && c.to === target.id);
+        if (!exists) {
+          const conn = createConnection(connSource, target.id);
+          connections.push(conn);
+          pushHistory();
+          toast('Connection created');
+        } else {
+          toast('Connection already exists');
+        }
+      }
+
+      isDrawingConn = false;
+      connSource = null;
+      document.getElementById('connPreview').style.display = 'none';
+      document.getElementById('canvas-container').classList.remove('drawing-connection');
+      render();
+    }
+
+    if (dragNode !== null) {
+      pushHistory();
+      dragNode = null;
+    }
+  }
+
+  function onCanvasWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(3, zoom * delta));
+    if (newZoom === zoom) return;
+
+    // Zoom centered on cursor
+    const rect = document.getElementById('canvas-container').getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    panX = mx - (mx - panX) * (newZoom / zoom);
+    panY = my - (my - panY) * (newZoom / zoom);
+    zoom = newZoom;
+
+    document.getElementById('zoomDisplay').textContent = `${Math.round(zoom * 100)}%`;
+    render();
+  }
+
+  function onNodeMouseDown(e, nodeId) {
+    if (e.button === 0) {
+      dragNode = nodeId;
+      const node = nodes.find(n => n.id === nodeId);
+      const canvas = document.getElementById('canvas-container');
+      const rect = canvas.getBoundingClientRect();
+      dragOffset = {
+        x: (e.clientX - rect.left - panX) / zoom - node.x,
+        y: (e.clientY - rect.top - panY) / zoom - node.y,
+      };
+    }
+  }
+
+  function onKeyDown(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      deleteSelected();
+    } else if (e.ctrlKey && e.key === 'z') {
+      e.preventDefault(); undo();
+    } else if (e.ctrlKey && e.key === 'y') {
+      e.preventDefault(); redo();
+    } else if (e.ctrlKey && e.key === 'c') {
+      copySelected();
+    } else if (e.ctrlKey && e.key === 'x') {
+      cutSelected();
+    } else if (e.ctrlKey && e.key === 'v') {
+      pasteNodes();
+    } else if (e.ctrlKey && e.key === 'd') {
+      e.preventDefault(); duplicateSelected();
+    } else if (e.ctrlKey && e.key === 'a') {
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
+      deselectAll();
+      isDrawingConn = false;
+      connSource = null;
+      document.getElementById('connPreview').style.display = 'none';
+      document.getElementById('canvas-container').classList.remove('drawing-connection');
+    }
+  }
+
+  function onContextMenu(e) {
+    e.preventDefault();
+    const menu = document.getElementById('context-menu');
+    menu.style.display = 'block';
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+
+    // Show paste option if clipboard
+    document.getElementById('pasteOption').style.display = clipboard ? 'block' : 'none';
+
+    // Close on click outside
+    const closeMenu = (ev) => {
+      menu.style.display = 'none';
+      document.removeEventListener('click', closeMenu);
+    };
+    setTimeout(() => document.addEventListener('click', closeMenu), 0);
+  }
+
+  // ─── Drawing Connections ───
+
+  function startDrawingConn(nodeId, e) {
+    isDrawingConn = true;
+    connSource = nodeId;
+    document.getElementById('canvas-container').classList.add('drawing-connection');
+    toast('Click another node to connect');
+    e.stopPropagation();
+  }
+
+  // ─── Edit Label ───
+
+  function editNodeLabel(nodeId) {
+    if (!nodeId && selected && selected.type === 'node') nodeId = selected.id;
+    if (!nodeId) return;
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const newLabel = prompt('Edit label:', node.label);
+    if (newLabel !== null && newLabel.trim()) {
+      node.label = newLabel.trim();
+      pushHistory();
+      render();
+      if (selected && selected.id === nodeId) openProperties('node', nodeId);
+    }
+  }
+
+  function editConnLabel(connId) {
+    if (!connId && selected && selected.type === 'conn') connId = selected.id;
+    if (!connId) return;
+    const conn = connections.find(c => c.id === connId);
+    if (!conn) return;
+
+    const newLabel = prompt('Edit connection label:', conn.label);
+    if (newLabel !== null) {
+      conn.label = newLabel.trim();
+      pushHistory();
+      render();
+    }
+  }
+
+  // ─── Copy / Paste / Duplicate ───
+
+  function copySelected() {
+    if (!selected || selected.type !== 'node') return toast('Select a node to copy');
+    const node = nodes.find(n => n.id === selected.id);
+    if (!node) return;
+    clipboard = { ...node };
+    toast('Copied');
+  }
+
+  function cutSelected() {
+    if (!selected || selected.type !== 'node') return toast('Select a node to cut');
+    const node = nodes.find(n => n.id === selected.id);
+    if (!node) return;
+    clipboard = { ...node };
+    deleteSelected();
+    toast('Cut');
+  }
+
+  function pasteNodes() {
+    if (!clipboard) return toast('Nothing to paste');
+    const newNode = { ...clipboard, id: uid(), x: clipboard.x + 30, y: clipboard.y + 30 };
+    nodes.push(newNode);
+    selectNode(newNode.id);
+    pushHistory();
+    toast('Pasted');
+  }
+
+  function duplicateSelected() {
+    if (!selected || selected.type !== 'node') return toast('Select a node to duplicate');
+    const node = nodes.find(n => n.id === selected.id);
+    if (!node) return;
+    const newNode = { ...node, id: uid(), x: node.x + 30, y: node.y + 30 };
+    nodes.push(newNode);
+    selectNode(newNode.id);
+    pushHistory();
+    toast('Duplicated');
+  }
+
+  // ─── Properties Panel ───
+
+  function openProperties(type, id) {
+    const panel = document.getElementById('properties');
+    panel.classList.add('open');
+
+    if (type === 'node') {
+      const node = nodes.find(n => n.id === id);
+      if (!node) return;
+      document.getElementById('propTitle').textContent = 'Node Properties';
+      document.getElementById('propLabel').value = node.label;
+      document.getElementById('propColor').value = node.color;
+      document.getElementById('propTextColor').value = node.textColor || '#ffffff';
+      document.getElementById('propWidth').value = node.w;
+      document.getElementById('propWidthGroup').style.display = 'block';
+    } else if (type === 'conn') {
+      const conn = connections.find(c => c.id === id);
+      if (!conn) return;
+      document.getElementById('propTitle').textContent = 'Connection Properties';
+      document.getElementById('propLabel').value = conn.label || '';
+      document.getElementById('propColor').value = '#ffffff';
+      document.getElementById('propTextColor').value = '#ffffff';
+      document.getElementById('propWidthGroup').style.display = 'none';
+    }
+  }
+
+  function closeProperties() {
+    document.getElementById('properties').classList.remove('open');
+  }
+
+  function updateProp(key, value) {
+    if (!selected) return;
+    if (selected.type === 'node') {
+      const node = nodes.find(n => n.id === selected.id);
+      if (!node) return;
+      node[key] = value;
+      pushHistory();
+      render();
+    } else if (selected.type === 'conn' && key === 'label') {
+      const conn = connections.find(c => c.id === selected.id);
+      if (conn) { conn.label = value; pushHistory(); render(); }
+    }
+  }
+
+  // ─── Zoom ───
+
+  function zoomIn() {
+    zoom = Math.min(3, zoom * 1.2);
+    document.getElementById('zoomDisplay').textContent = `${Math.round(zoom * 100)}%`;
+    render();
+  }
+
+  function zoomOut() {
+    zoom = Math.max(0.1, zoom / 1.2);
+    document.getElementById('zoomDisplay').textContent = `${Math.round(zoom * 100)}%`;
+    render();
+  }
+
+  function fitToScreen() {
+    if (nodes.length === 0) return;
+    const minX = Math.min(...nodes.map(n => n.x));
+    const minY = Math.min(...nodes.map(n => n.y));
+    const maxX = Math.max(...nodes.map(n => n.x + n.w));
+    const maxY = Math.max(...nodes.map(n => n.y + n.h));
+
+    const canvas = document.getElementById('canvas-container');
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    const padding = 60;
+
+    const fitZoom = Math.min((cw - padding * 2) / (maxX - minX || 1), (ch - padding * 2) / (maxY - minY || 1), 2);
+    zoom = Math.max(0.2, fitZoom);
+
+    panX = (cw - (minX + maxX) * zoom) / 2;
+    panY = (ch - (minY + maxY) * zoom) / 2;
+
+    document.getElementById('zoomDisplay').textContent = `${Math.round(zoom * 100)}%`;
+    render();
+    toast('Fit to screen');
+  }
+
+  // ─── Export / Import ───
+
+  function exportJSON() {
+    const data = { nodes, connections };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'flowchart.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Exported as JSON');
+  }
+
+  function importJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.nodes && data.connections) {
+          nodes = data.nodes;
+          connections = data.connections;
+          nextId = Math.max(...nodes.map(n => n.id), ...connections.map(c => c.id), 0) + 1;
+          selected = null;
+          pushHistory();
+          render();
+          toast(`Imported ${nodes.length} nodes, ${connections.length} connections`);
+        } else {
+          toast('Invalid file format');
+        }
+      } catch (err) {
+        toast('Error importing file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  function exportSVG() {
+    const svgEl = document.getElementById('canvas').cloneNode(true);
+    // Clean up interactive bits
+    svgEl.querySelectorAll('.conn-source').forEach(el => el.remove());
+    svgEl.querySelector('#selection-box').remove();
+    svgEl.querySelector('#connPreview').remove();
+
+    // Set explicit size
+    const minX = Math.min(...nodes.map(n => n.x), 0);
+    const minY = Math.min(...nodes.map(n => n.y), 0);
+    const maxX = Math.max(...nodes.map(n => n.x + n.w), 800);
+    const maxY = Math.max(...nodes.map(n => n.y + n.h), 600);
+    svgEl.setAttribute('width', maxX - minX + 60);
+    svgEl.setAttribute('height', maxY - minY + 60);
+    svgEl.setAttribute('viewBox', `${minX - 30} ${minY - 30} ${maxX - minX + 60} ${maxY - minY + 60}`);
+
+    // Apply transforms directly
+    const gs = svgEl.querySelectorAll('g');
+    gs.forEach(g => g.removeAttribute('transform'));
+
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svgEl);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'flowchart.svg';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Exported as SVG');
+  }
+
+  // ─── Minimap ───
+
+  function updateMinimap() {
+    const container = document.getElementById('minimap');
+    if (!container) return;
+    
+    let svg = container.querySelector('svg');
+    if (!svg) {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      container.appendChild(svg);
+    }
+
+    if (nodes.length === 0) {
+      svg.innerHTML = '';
+      return;
+    }
+
+    const minX = Math.min(...nodes.map(n => n.x));
+    const minY = Math.min(...nodes.map(n => n.y));
+    const maxX = Math.max(...nodes.map(n => n.x + n.w));
+    const maxY = Math.max(...nodes.map(n => n.y + n.h));
+    const pad = 20;
+    const mw = 150, mh = 90;
+    const scale = Math.min(mw / (maxX - minX + pad * 2), mh / (maxY - minY + pad * 2), 1);
+
+    let html = '';
+    // Node dots
+    nodes.forEach(n => {
+      const x = (n.x - minX + pad) * scale;
+      const y = (n.y - minY + pad) * scale;
+      const w = n.w * scale;
+      const h = n.h * scale;
+      const isSel = selected && selected.type === 'node' && selected.id === n.id;
+      html += `<rect x="${x}" y="${y}" width="${Math.max(w,3)}" height="${Math.max(h,3)}" rx="2" fill="${isSel ? '#7c5cfc' : n.color}" opacity="${isSel ? 1 : 0.6}" />`;
+    });
+
+    // Viewport
+    const canvas = document.getElementById('canvas-container');
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    const vx = (-panX / zoom - minX + pad) * scale;
+    const vy = (-panY / zoom - minY + pad) * scale;
+    const vw = (cw / zoom) * scale;
+    const vh = (ch / zoom) * scale;
+
+    html += `<rect class="minimap-viewport" x="${vx}" y="${vy}" width="${vw}" height="${vh}" />`;
+
+    svg.innerHTML = html;
+  }
+
+  // ─── Sample Data ───
+
+  function loadSample() {
+    const sampleNodes = [
+      createNode('start', 'Start', 60, 40),
+      createNode('process', 'User Request', 60, 130),
+      createNode('decision', 'Valid?', 60, 230),
+      createNode('process', 'Process Data', 60, 350),
+      createNode('database', 'Store Result', 60, 450),
+      createNode('end', 'Complete', 60, 540),
+      createNode('decision', 'Cache Hit?', 350, 130),
+      createNode('process', 'Return Cached', 350, 230),
+    ];
+
+    sampleNodes.forEach(n => {
+      if (!nodes.find(en => en.id === n.id)) nodes.push(n);
+    });
+
+    const sampleConns = [
+      createConnection(1, 2, 'trigger'),
+      createConnection(2, 3, 'forward'),
+      createConnection(3, 4, 'yes'),
+      createConnection(3, 7, 'no'),
+      createConnection(7, 8, 'hit'),
+      createConnection(7, 2, 'miss → retry'),
+      createConnection(4, 5, 'save'),
+      createConnection(5, 6, 'done'),
+    ];
+
+    // Fix up IDs
+    const idMap = {};
+    nodes.forEach((n, i) => { idMap[i + 1] = n.id; });
+
+    sampleConns.forEach(c => {
+      const from = idMap[c.from];
+      const to = idMap[c.to];
+      if (from && to && !connections.some(ex => ex.from === from && ex.to === to)) {
+        connections.push({ ...c, id: uid(), from, to });
+      }
+    });
+
+    // Update nextId
+    nextId = Math.max(...nodes.map(n => n.id), ...connections.map(c => c.id), 0) + 1;
+
+    pushHistory();
+    fitToScreen();
+    toast('Welcome to FlowForge! Drag nodes from the palette to get started.');
+  }
+
+  // ─── Init ───
+
+  render();
+  </script>
+</body>
+</html>
